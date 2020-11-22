@@ -86,8 +86,24 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     # query the policy with observation(s) to get selected action(s)
     def get_action(self, obs: np.ndarray) -> np.ndarray:
-        # TODO: get this from hw1
-        return action
+        obs = np.array(obs)
+        if len(obs.shape) > 1:
+            observation = obs
+        else:
+            observation = obs[None]
+            # TODO return the action that the policy prescribes
+            #需要传入tensor
+            actions = self(ptu.from_numpy(observation))
+            # print("actions:", actions)
+            #从action中采样
+            if (self.discrete):
+                action = np.argmax(ptu.to_numpy(actions), axis=1) #离散动作取最大概率
+            else:
+                action = actions+torch.tensor(
+                    np.exp(ptu.to_numpy(self.logstd)) *
+                    np.random.normal(loc=0, scale=1,size=actions.shape[1])).cuda()
+                action = ptu.to_numpy(action) #连续动作从分布中采样
+                return action
 
     # update/train this policy
     def update(self, observations, actions, **kwargs):
@@ -98,10 +114,15 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
     # through it. For example, you can return a torch.FloatTensor. You can also
     # return more flexible objects, such as a
     # `torch.distributions.Distribution` object. It's up to you!
-    def forward(self, observation: torch.FloatTensor):
-        # TODO: get this from hw1
-        return action_distribution
-
+    
+    # This function defines the forward pass of the network.
+    def forward(self, observation: torch.FloatTensor) -> Any:
+        input = observation
+        if (self.discrete):
+            output = self.logits_na(input)
+        else:
+            output = self.mean_net(input)
+            return output   
 
 #####################################################
 #####################################################
@@ -129,7 +150,7 @@ class MLPPolicyPG(MLPPolicy):
 
         # TODO: optimize `loss` using `self.optimizer`
         # HINT: remember to `zero_grad` first
-        TODO
+        # TODO
 
         if self.nn_baseline:
             ## TODO: normalize the q_values to have a mean of zero and a standard deviation of one
@@ -151,7 +172,7 @@ class MLPPolicyPG(MLPPolicy):
 
             # TODO: optimize `baseline_loss` using `self.baseline_optimizer`
             # HINT: remember to `zero_grad` first
-            TODO
+            # TODO
 
         train_log = {
             'Training Loss': ptu.to_numpy(loss),
